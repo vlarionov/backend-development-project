@@ -1,6 +1,7 @@
 const express = require("express");
 const { authMiddleware } = require("../middlewares/auth");
 const Project = require("../models/Project");
+const Task = require("../models/Task")
 
 const projectRouter = express.Router();
 
@@ -52,8 +53,8 @@ projectRouter.get("/:projectId", async (req, res) => {
     }
 
     // Authorization
-    console.log(req.user._id);
-    console.log(project.user);
+    //console.log(req.user._id);
+    //console.log(`project user: ${project.user}`);
 
     if (project.user.toString() !== req.user._id) {
       return res.status(403).json({ message: "user is not authorized!" });
@@ -163,5 +164,84 @@ projectRouter.delete("/:projectId", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+//===================================================
+/**
+ * Routes for tasks under projects ----------------
+ */
+//===================================================
+
+/**
+ * POST /api/projects/:projectId/tasks
+ */
+
+projectRouter.post("/:projectId/tasks", async (req, res) => {
+
+  // check that user is logged in
+  if (!req.user) {
+    return res.status(401).json({ message: `User not logged in!` });
+  }
+
+  const { projectId } = req.params;
+  //console.log(`projectId = ${projectId}`)
+  const projectToUpdate = await Project.findById(projectId);
+
+  // authorization check
+  if (projectToUpdate.user.toString() !== req.user._id) {
+    return res.status(403).json({ message: "user is not authorized!" });
+  }
+
+  if(!projectToUpdate) return res.status(400).json({error: "Project not found"})
+
+  try {
+    const newTask = await Task.create({
+      ...req.body,
+      project: projectToUpdate._id,
+    });
+
+    res.status(201).json(newTask);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+/**
+ * GET /api/projects/:projectId/tasks
+ */
+
+projectRouter.get("/:projectId/tasks", async (req, res) => {
+  try {
+    //console.log(req.user);
+
+    // check that user is logged in
+    if (!req.user) {
+      return res.status(401).json({ message: `User not logged in!` });
+    }
+
+    const { projectId } = req.params;
+
+    const project = await Project.findById(projectId);
+
+    if(!project) return res.status(400).json({error: "Project not found"})
+
+    console.log(project._id)
+    // authorization check
+    if (project.user.toString() !== req.user._id) {
+      return res.status(403).json({ message: "user is not authorized!" });
+    }
+
+    const projectTasks = await Task.find({ project: projectId });
+
+
+    //console.log(projectTasks);
+    res.json(projectTasks);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 module.exports = projectRouter;
